@@ -141,5 +141,15 @@ class OSSFSTest(test.TestCase):
         self.assertIn("d2", content)
 
 
+    def test_access_info_from_env(self):
+        test_dir = "oss://%s/oss_fs_test/%s" % (bucket, "test_dir")
+        gfile.MakeDirs(test_dir)
+        self.assertTrue(gfile.Exists(test_dir))
+
+        test_file = os.path.join(test_dir, "test_file")
+        with gfile.Open(test_file, 'w') as f:
+            f.write("xxxxxxxxx")
+        self.assertTrue(gfile.Exists(test_file))
+
 if __name__ == "__main__":
     test.main()

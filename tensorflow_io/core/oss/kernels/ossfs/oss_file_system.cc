@@ -515,39 +515,53 @@ Status OSSFileSystem::_ParseOSSURIPath(const StringPiece fname,
 
   // contains id, key, host information
   size_t pos = bucketp.find(bucketDelim);
-  bucket = string(bucketp.substr(0, pos));
-  StringPiece access_info = bucketp.substr(pos + 1);
-  std::vector<std::string> access_infos =
-      str_util::Split(access_info, accessDelim);
-  for (const auto& key_value : access_infos) {
-    StringPiece data(key_value);
-    size_t pos = data.find('=');
-    if (pos == StringPiece::npos) {
-      return errors::InvalidArgument("OSS path access info faied: ", fname,
-                                     " info:", key_value);
+  if (pos != string::npos) {
+    bucket = string(bucketp.substr(0, pos));
+    StringPiece access_info = bucketp.substr(pos + 1);
+    std::vector<std::string> access_infos =
+        str_util::Split(access_info, accessDelim);
+    for (const auto& key_value : access_infos) {
+      StringPiece data(key_value);
+      size_t pos = data.find('=');
+      if (pos == StringPiece::npos) {
+        return errors::InvalidArgument("OSS path access info faied: ", fname,
+                                      " info:", key_value);
+      }
+      StringPiece key = data.substr(0, pos);
+      StringPiece value = data.substr(pos + 1);
+      if (str_util::StartsWith(key, kOSSAccessIdKey)) {
+        access_id = string(value);
+      } else if (str_util::StartsWith(key, kOSSAccessKeyKey)) {
+        access_key = string(value);
+      } else if (str_util::StartsWith(key, kOSSHostKey)) {
+        host = string(value);
+      } else {
+        return errors::InvalidArgument("OSS path access info faied: ", fname,
+                                      " unkown info:", key_value);
+      }
     }
-    StringPiece key = data.substr(0, pos);
-    StringPiece value = data.substr(pos + 1);
-    if (str_util::StartsWith(key, kOSSAccessIdKey)) {
-      access_id = string(value);
-    } else if (str_util::StartsWith(key, kOSSAccessKeyKey)) {
-      access_key = string(value);
-    } else if (str_util::StartsWith(key, kOSSHostKey)) {
-      host = string(value);
-    } else {
-      return errors::InvalidArgument("OSS path access info faied: ", fname,
-                                     " unkown info:", key_value);
+
+    if (access_id.empty() || access_key.empty() || host.empty()) {
+      return errors::InvalidArgument(
+          "OSS path does not contain valid access info:", fname);
+    }
+  } else {
+    bucket = string(bucketp);
+
+    access_id = std::getenv("OSS_ACCESS_ID");
+    access_key = std::getenv("OSS_ACCESS_KEY");
+    host = std::getenv("OSS_HOST");
+
+    if (access_id.empty() || access_key.empty() || host.empty()) {
+      return errors::InvalidArgument(
+          "Could not find oss access info."
+          "Please make sure env OSS_HOST, OSS_ACCESS_ID, OSS_ACCESS_KEY are set.");
     }
   }
 
   if (bucket.empty()) {
     return errors::InvalidArgument("OSS path does not contain a bucket name:",
                                    fname);
-  }
-
-  if (access_id.empty() || access_key.empty() || host.empty()) {
-    return errors::InvalidArgument(
-        "OSS path does not contain valid access info:", fname);
   }
 
   VLOG(1) << "bucket: " << bucket << ",access_id: " << access_id
