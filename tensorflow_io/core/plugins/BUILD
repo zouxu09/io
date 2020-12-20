@@ -34,6 +34,7 @@ cc_library(
         "//tensorflow_io/core/plugins/hdfs",
         "//tensorflow_io/core/plugins/http",
         "//tensorflow_io/core/plugins/s3",
+        "//tensorflow_io/core/plugins/oss",
     ],
     alwayslink = 1,
 )

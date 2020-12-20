@@ -18,7 +18,7 @@ limitations under the License.
 void TF_InitPlugin(TF_FilesystemPluginInfo* info) {
   info->plugin_memory_allocate = tensorflow::io::plugin_memory_allocate;
   info->plugin_memory_free = tensorflow::io::plugin_memory_free;
-  info->num_schemes = 7;
+  info->num_schemes = 8;
   info->ops = static_cast<TF_FilesystemPluginOps*>(
       tensorflow::io::plugin_memory_allocate(info->num_schemes *
                                              sizeof(info->ops[0])));
@@ -29,4 +29,5 @@ void TF_InitPlugin(TF_FilesystemPluginInfo* info) {
   tensorflow::io::hdfs::ProvideFilesystemSupportFor(&info->ops[4], "viewfse");
   tensorflow::io::hdfs::ProvideFilesystemSupportFor(&info->ops[5], "hare");
   tensorflow::io::gs::ProvideFilesystemSupportFor(&info->ops[6], "gse");
+  tensorflow::io::oss::ProvideFilesystemSupportFor(&info->ops[7], "oss");
 }
