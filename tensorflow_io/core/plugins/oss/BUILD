@@ -16,8 +16,8 @@ cc_library(
     linkstatic = True,
     deps = [
         "//tensorflow_io/core/plugins:plugins_header",
-        "@com_google_absl//absl/strings",
         "@aliyun_oss_c_sdk",
+        "@com_google_absl//absl/strings",
     ],
     alwayslink = 1,
 )

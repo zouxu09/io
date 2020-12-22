@@ -33,8 +33,8 @@ cc_library(
         "//tensorflow_io/core/plugins/gs",
         "//tensorflow_io/core/plugins/hdfs",
         "//tensorflow_io/core/plugins/http",
-        "//tensorflow_io/core/plugins/s3",
         "//tensorflow_io/core/plugins/oss",
+        "//tensorflow_io/core/plugins/s3",
     ],
     alwayslink = 1,
 )
