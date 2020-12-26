@@ -18,6 +18,7 @@ cc_library(
         "//tensorflow_io/core/plugins:plugins_header",
         "@aliyun_oss_c_sdk",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/synchronization",
     ],
     alwayslink = 1,
 )
