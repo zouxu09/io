@@ -16,6 +16,7 @@ limitations under the License.
 #include <mutex>
 #include <string>
 #include <vector>
+#include <iostream>
 
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
@@ -26,6 +27,7 @@ limitations under the License.
 #include "oss_auth.h"
 #include "tensorflow/c/logging.h"
 #include "tensorflow/c/tf_status.h"
+#include "tensorflow/core/lib/io/path.h"
 #include "tensorflow_io/core/plugins/file_system_plugins.h"
 
 namespace tensorflow {
@@ -86,21 +88,6 @@ void oss_error_message(aos_status_s* status, std::string* msg) {
     msg->append(status->error_msg);
     return;
   }
-}
-
-void ParseURI(const absl::string_view& fname, absl::string_view* scheme,
-              absl::string_view* host, absl::string_view* path) {
-  size_t scheme_chunk = fname.find("://");
-  if (scheme_chunk == absl::string_view::npos) {
-    return;
-  }
-  size_t host_chunk = fname.find("/", scheme_chunk + 3);
-  if (host_chunk == absl::string_view::npos) {
-    return;
-  }
-  *scheme = absl::string_view(fname).substr(0, scheme_chunk);
-  *host = fname.substr(scheme_chunk + 3, host_chunk);
-  *path = fname.substr(host_chunk, -1);
 }
 
 class OSSConnection {
@@ -603,12 +590,12 @@ void ParseOSSURIPath(const absl::string_view fname, std::string& bucket,
                      std::string& access_id, std::string& access_key,
                      TF_Status* status) {
   absl::string_view scheme, bucketp, remaining;
-  ParseURI(fname, &scheme, &bucketp, &remaining);
+  io::ParseURI(fname, &scheme, &bucketp, &remaining);
 
   if (scheme != "oss") {
     TF_SetStatus(
-        status, TF_INTERNAL,
-        absl::StrCat("OSS path does not start with 'oss://':", fname).c_str());
+      status, TF_INTERNAL,
+      absl::StrCat("OSS path does not start with 'oss://':", fname).c_str());
     return;
   }
 
@@ -627,15 +614,16 @@ void ParseOSSURIPath(const absl::string_view fname, std::string& bucket,
   bucket = std::string(bucketp.substr(0, pos));
   absl::string_view access_info = bucketp.substr(pos + 1);
   std::vector<std::string> access_infos =
-      absl::StrSplit(access_info, accessDelim);
+    absl::StrSplit(access_info, accessDelim);
   for (const auto& key_value : access_infos) {
     absl::string_view data(key_value);
     size_t pos = data.find('=');
     if (pos == absl::string_view::npos) {
-      TF_SetStatus(status, TF_INTERNAL,
-                   absl::StrCat("OSS path access info faied: ", fname,
-                                " info:", key_value)
-                       .c_str());
+      TF_SetStatus(
+        status, TF_INTERNAL,
+        absl::StrCat(
+          "OSS path access info faied: ", fname,
+          " info:", key_value).c_str());
       return;
     }
     absl::string_view key = data.substr(0, pos);
@@ -647,26 +635,28 @@ void ParseOSSURIPath(const absl::string_view fname, std::string& bucket,
     } else if (absl::StartsWith(key, kOSSHostKey)) {
       host = std::string(value);
     } else {
-      TF_SetStatus(status, TF_INTERNAL,
-                   absl::StrCat("OSS path access info faied: ", fname,
-                                " unkown info:", key_value)
-                       .c_str());
+      TF_SetStatus(
+        status, TF_INTERNAL,
+        absl::StrCat(
+          "OSS path access info faied: ", fname,
+          " unkown info:", key_value).c_str());
       return;
     }
   }
 
   if (bucket.empty()) {
-    TF_SetStatus(status, TF_INTERNAL,
-                 absl::StrCat("OSS path does not contain a bucket name:", fname)
-                     .c_str());
+    TF_SetStatus(
+      status, TF_INTERNAL,
+      absl::StrCat(
+        "OSS path does not contain a bucket name:", fname).c_str());
     return;
   }
 
   if (access_id.empty() || access_key.empty() || host.empty()) {
     TF_SetStatus(
-        status, TF_INTERNAL,
-        absl::StrCat("OSS path does not contain valid access info:", fname)
-            .c_str());
+      status, TF_INTERNAL,
+      absl::StrCat(
+        "OSS path does not contain valid access info:", fname).c_str());
     return;
   }
 
@@ -679,7 +669,8 @@ void ParseOSSURIPath(const absl::string_view fname, std::string& bucket,
 void RetrieveObjectMetadata(aos_pool_t* pool,
                             const oss_request_options_t* options,
                             const std::string& bucket,
-                            const std::string& object, TF_FileStatistics* stat,
+                            const std::string& object,
+                            TF_FileStatistics* stat,
                             TF_Status* status) {
   aos_string_t oss_bucket;
   aos_string_t oss_object;
@@ -699,7 +690,6 @@ void RetrieveObjectMetadata(aos_pool_t* pool,
   aos_str_set(&oss_bucket, bucket.c_str());
   aos_str_set(&oss_object, object.c_str());
   headers = aos_table_make(pool, 0);
-
   aos_status = oss_head_object(options, &oss_bucket, &oss_object, headers,
                                &resp_headers);
   if (aos_status_is_ok(aos_status)) {
@@ -723,7 +713,7 @@ void RetrieveObjectMetadata(aos_pool_t* pool,
     } else {
       TF_VLog(0, "find ", object, " with no datestr");
       std::string error_message =
-          absl::StrCat("find", object, " with no datestr");
+        absl::StrCat("find", object, " with no datestr");
       TF_SetStatus(status, TF_NOT_FOUND, error_message.c_str());
       return;
     }
@@ -742,7 +732,7 @@ void RetrieveObjectMetadata(aos_pool_t* pool,
     TF_VLog(1, "can not find object: ", object, ", with bucket: ", bucket,
             ", errMsg: ", msg);
     std::string error_message =
-        absl::StrCat("can not find ", object, " errMsg: ", msg);
+      absl::StrCat("can not find ", object, " errMsg: ", msg);
     TF_SetStatus(status, TF_NOT_FOUND, error_message.c_str());
     return;
   }
@@ -940,7 +930,7 @@ void CreateDirInternal(aos_pool_t* pool, const oss_request_options_t* options,
     if (!stat.is_directory) {
       TF_VLog(0, "object already exists as a file: ", dirname);
       std::string error_message =
-          absl::StrCat("object already exists as a file: ", dirname);
+        absl::StrCat("object already exists as a file: ", dirname);
       TF_SetStatus(status, TF_ALREADY_EXISTS, error_message.c_str());
       return;
     } else {
@@ -978,7 +968,7 @@ void CreateDirInternal(aos_pool_t* pool, const oss_request_options_t* options,
     oss_error_message(s, &msg);
     TF_VLog(1, "mkdir ", dirname, " failed, errMsg: ", msg);
     std::string error_message =
-        absl::StrCat("mkdir failed: ", dirname, " errMsg: ", msg);
+      absl::StrCat("mkdir failed: ", dirname, " errMsg: ", msg);
     TF_SetStatus(status, TF_INTERNAL, error_message.c_str());
     return;
   }
@@ -997,12 +987,13 @@ static void CreateDir(const TF_Filesystem* filesystem, const char* path,
   if (TF_GetCode(status) != TF_OK) {
     return;
   }
+
   OSSConnection oss(host, access_id, access_key);
   oss_request_options_t* ossOptions = oss.getRequestOptions();
   aos_pool_t* pool = oss.getPool();
   absl::string_view dirs(object);
   std::vector<std::string> splitPaths =
-      absl::StrSplit(dirs, '/', absl::SkipEmpty());
+    absl::StrSplit(dirs, '/', absl::SkipEmpty());
   if (splitPaths.size() < 2) {
     CreateDirInternal(pool, ossOptions, bucket, object, status);
     return;
